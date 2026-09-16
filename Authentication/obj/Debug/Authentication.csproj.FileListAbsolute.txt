@@ -1,0 +1,8 @@
+e:\fingerprint_scanner\Authentication\obj\Debug\Authentication.csproj.AssemblyReference.cache
+e:\fingerprint_scanner\Authentication\obj\Debug\Authentication.csproj.CoreCompileInputs.cache
+e:\fingerprint_scanner\Authentication\bin\Authentication.dll
+e:\fingerprint_scanner\Authentication\bin\Authentication.pdb
+e:\fingerprint_scanner\Authentication\bin\Oracle.ManagedDataAccess.dll
+e:\fingerprint_scanner\Authentication\obj\Debug\Authenti.5C4D8D91.Up2Date
+e:\fingerprint_scanner\Authentication\obj\Debug\Authentication.dll
+e:\fingerprint_scanner\Authentication\obj\Debug\Authentication.pdb
