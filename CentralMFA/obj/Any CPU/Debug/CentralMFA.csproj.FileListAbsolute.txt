@@ -1,0 +1,8 @@
+e:\fingerprint_scanner\CentralMFA\bin\CentralMFA.dll
+e:\fingerprint_scanner\CentralMFA\bin\CentralMFA.pdb
+e:\fingerprint_scanner\CentralMFA\bin\Oracle.ManagedDataAccess.dll
+e:\fingerprint_scanner\CentralMFA\obj\Any CPU\Debug\CentralMFA.csproj.AssemblyReference.cache
+e:\fingerprint_scanner\CentralMFA\obj\Any CPU\Debug\CentralMFA.csproj.CoreCompileInputs.cache
+e:\fingerprint_scanner\CentralMFA\obj\Any CPU\Debug\CentralMFA.csproj.Up2Date
+e:\fingerprint_scanner\CentralMFA\obj\Any CPU\Debug\CentralMFA.dll
+e:\fingerprint_scanner\CentralMFA\obj\Any CPU\Debug\CentralMFA.pdb

@@ -1,0 +1,6 @@
+e:\fingerprint_scanner\MfaScannerAgent\bin\Debug\MfaScannerAgent.exe
+e:\fingerprint_scanner\MfaScannerAgent\bin\Debug\MfaScannerAgent.pdb
+e:\fingerprint_scanner\MfaScannerAgent\obj\Debug\MfaScannerAgent.csproj.AssemblyReference.cache
+e:\fingerprint_scanner\MfaScannerAgent\obj\Debug\MfaScannerAgent.csproj.CoreCompileInputs.cache
+e:\fingerprint_scanner\MfaScannerAgent\obj\Debug\MfaScannerAgent.exe
+e:\fingerprint_scanner\MfaScannerAgent\obj\Debug\MfaScannerAgent.pdb

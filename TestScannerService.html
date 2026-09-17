@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mantra MFS100 Client Service - Port 8034 Diagnostic Test</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: #f1f5f9;
+            color: #1e293b;
+            padding: 30px;
+            display: flex;
+            justify-content: center;
+        }
+        .card {
+            background: #ffffff;
+            border-radius: 12px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.08);
+            padding: 30px;
+            max-width: 600px;
+            width: 100%;
+        }
+        h1 { font-size: 1.3rem; margin-bottom: 8px; color: #0f172a; }
+        p { font-size: 0.9rem; color: #64748b; margin-bottom: 20px; line-height: 1.4; }
+        .status-box {
+            padding: 14px 18px;
+            border-radius: 8px;
+            font-size: 0.92rem;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .status-disconnected { background: #fef2f2; border: 1px solid #fecaca; color: #dc2626; }
+        .status-connected { background: #f0fdf4; border: 1px solid #bbf7d0; color: #16a34a; }
+        .btn {
+            background: #2563eb;
+            color: #ffffff;
+            border: none;
+            padding: 10px 18px;
+            border-radius: 6px;
+            font-weight: 600;
+            cursor: pointer;
+            font-size: 0.92rem;
+            transition: all 0.2s;
+        }
+        .btn:hover { background: #1d4ed8; }
+        .btn:disabled { background: #94a3b8; cursor: not-allowed; }
+        .btn-group { display: flex; gap: 10px; margin-bottom: 20px; }
+        pre {
+            background: #0f172a;
+            color: #38bdf8;
+            padding: 14px;
+            border-radius: 8px;
+            font-size: 0.8rem;
+            max-height: 220px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
+        .preview-img {
+            max-width: 120px;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            display: none;
+            margin: 15px auto;
+        }
+    </style>
+</head>
+<body>
+
+<div class="card">
+    <h1>Mantra MFS100 Client Service Tester</h1>
+    <p>Tests if the local background service is running on <strong>http://127.0.0.1:8034</strong> (or RD Service 11100) and communicates with the USB scanner.</p>
+
+    <div id="statusBox" class="status-box status-disconnected">
+        <span id="statusText">Checking Port 8034...</span>
+        <strong id="portBadge">Checking</strong>
+    </div>
+
+    <div class="btn-group">
+        <button id="btnCheck" class="btn" onclick="checkService()">1. Check Port 8034 Status</button>
+        <button id="btnCapture" class="btn" onclick="captureFinger()" disabled>2. Test Capture Fingerprint</button>
+    </div>
+
+    <img id="imgFinger" class="preview-img" alt="Fingerprint Preview" />
+
+    <h4 style="font-size: 0.85rem; color: #475569; margin-bottom: 6px;">Service Response / Output:</h4>
+    <pre id="outputLog">Click "1. Check Port 8034 Status" to begin diagnostic test.</pre>
+</div>
+
+<script>
+    const SERVICE_URL = "http://127.0.0.1:8034";
+    const RD_URL = "http://127.0.0.1:11100";
+
+    function log(msg) {
+        document.getElementById("outputLog").innerText = typeof msg === "object" ? JSON.stringify(msg, null, 2) : msg;
+    }
+
+    async function checkService() {
+        const statusBox = document.getElementById("statusBox");
+        const statusText = document.getElementById("statusText");
+        const portBadge = document.getElementById("portBadge");
+        const btnCapture = document.getElementById("btnCapture");
+
+        log("Pinging http://127.0.0.1:8034/mfs100/info ...");
+
+        try {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 3000);
+
+            const res = await fetch(`${SERVICE_URL}/mfs100/info`, {
+                method: "GET",
+                signal: controller.signal
+            });
+            clearTimeout(timeoutId);
+
+            if (res.ok) {
+                const data = await res.json();
+                statusBox.className = "status-box status-connected";
+                statusText.innerText = "Service Connected on Port 8034!";
+                portBadge.innerText = "ONLINE";
+                btnCapture.disabled = false;
+                log({ status: "SUCCESS - Port 8034 is active and responding", deviceInfo: data });
+                return;
+            }
+        } catch (e) {
+            // Port 8034 failed, try checking RD service port 11100 as fallback
+            log("Port 8034 did not respond. Testing fallback RD Service port 11100...");
+            try {
+                const rdRes = await fetch(`${RD_URL}/`, { method: "DEVICEINFO" });
+                if (rdRes.ok) {
+                    const rdData = await rdRes.text();
+                    statusBox.className = "status-box status-connected";
+                    statusText.innerText = "Mantra RD Service Active on Port 11100!";
+                    portBadge.innerText = "RD SERVICE";
+                    log("Mantra RD Service detected on port 11100:\n" + rdData);
+                    return;
+                }
+            } catch (rdErr) {}
+
+            statusBox.className = "status-box status-disconnected";
+            statusText.innerText = "Port 8034 is NOT listening (MFS100ClientService not running).";
+            portBadge.innerText = "OFFLINE";
+            btnCapture.disabled = true;
+            log("Error: Could not connect to http://127.0.0.1:8034.\n\nReason: MFS100ClientService.exe is either not installed or not running as a service on this PC.");
+        }
+    }
+
+    async function captureFinger() {
+        log("Calling http://127.0.0.1:8034/mfs100/capture ...\nPlease place your finger on the MFS100 scanner!");
+        try {
+            const res = await fetch(`${SERVICE_URL}/mfs100/capture`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ Quality: 60, TimeOut: 10 })
+            });
+            const data = await res.json();
+            log(data);
+
+            if (data.BitmapData) {
+                const img = document.getElementById("imgFinger");
+                img.src = "data:image/bmp;base64," + data.BitmapData;
+                img.style.display = "block";
+            }
+        } catch (e) {
+            log("Capture error: " + e.message);
+        }
+    }
+
+    // Auto-run check on page load
+    window.onload = checkService;
+</script>
+
+</body>
+</html>
