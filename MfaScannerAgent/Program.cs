@@ -212,7 +212,7 @@ namespace MfaScannerAgent
                 }
                 else if (path == "/mfs100/capture" || path == "/capture")
                 {
-                    HandleCapture(response);
+                    HandleCapture(request, response);
                 }
                 else if (path == "/mfs100/simulate" || path == "/simulate")
                 {
@@ -255,7 +255,7 @@ namespace MfaScannerAgent
             SendJson(response, 200, json);
         }
 
-        private static void HandleCapture(HttpListenerResponse response)
+        private static void HandleCapture(HttpListenerRequest request, HttpListenerResponse response)
         {
             bool ready = EnsureDeviceInitialized();
 
@@ -279,12 +279,41 @@ namespace MfaScannerAgent
                 return;
             }
 
+            int timeoutMs = 20000; // Default: 20 seconds of illumination time
+            if (request != null)
+            {
+                if (!string.IsNullOrEmpty(request.QueryString["timeout"]))
+                {
+                    if (int.TryParse(request.QueryString["timeout"], out int tSec) && tSec > 0)
+                    {
+                        timeoutMs = tSec * 1000;
+                    }
+                }
+                else if (request.HasEntityBody)
+                {
+                    try
+                    {
+                        using (var reader = new StreamReader(request.InputStream, request.ContentEncoding))
+                        {
+                            string body = reader.ReadToEnd();
+                            string tStr = ExtractJsonField(body, "TimeOut");
+                            if (string.IsNullOrEmpty(tStr)) tStr = ExtractJsonField(body, "timeout");
+                            if (!string.IsNullOrEmpty(tStr) && int.TryParse(tStr, out int bSec) && bSec > 0)
+                            {
+                                timeoutMs = bSec * 1000;
+                            }
+                        }
+                    }
+                    catch { }
+                }
+            }
+
             byte[] templateBytes = null;
             int quality = 0;
             string error = null;
 
             Console.ForegroundColor = ConsoleColor.Cyan;
-            Console.WriteLine(">>> [HARDWARE] Activating Mantra MFS100 optical sensor (red light on)...");
+            Console.WriteLine(">>> [HARDWARE] Activating Mantra MFS100 optical sensor (red light on for " + (timeoutMs / 1000) + "s)...");
             Console.WriteLine("    Please place your finger flat and firmly on the scanner glass.");
             Console.ResetColor();
 
@@ -296,7 +325,7 @@ namespace MfaScannerAgent
 
                 // Call AutoCapture(FingerData&, int Timeout, bool ShowPreview, bool IsDetectFinger)
                 MethodInfo autoCap = _deviceType.GetMethod("AutoCapture");
-                object[] args = new object[] { fdObj, 10000, false, true };
+                object[] args = new object[] { fdObj, timeoutMs, false, true };
                 int ret = (int)autoCap.Invoke(_device, args);
 
                 if (ret == 0 && args[0] != null)
