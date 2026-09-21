@@ -84,22 +84,22 @@ namespace CentralMFA.Client
         // FUNCTION 2: CAPTURE FINGERPRINT DATA FROM DEVICE (WITH CONFIGURABLE TIMEOUT)
         // =========================================================================
         /// <summary>
-        /// Communicates with MfaScannerAgent to turn on the optical scanner, wait for finger
-        /// placement, and return the extracted standard ISO-19794-2 biometric template.
+        /// Communicates with MfaScannerAgent to turn on the optical scanner, keep the red light
+        /// actively illuminated waiting for finger placement, and return the extracted standard ISO-19794-2 template.
         /// </summary>
-        /// <param name="timeoutSeconds">Number of seconds the red light stays ON waiting for finger placement (e.g. 15, 20, 30s).</param>
+        /// <param name="timeoutSecondsOrMs">Duration the red light stays ON waiting for finger placement (e.g. 15, 20, 30s or 15000, 20000ms). Default: 20 seconds.</param>
         /// <param name="qualityScore">Outputs the capture quality (0 to 100).</param>
         /// <param name="errorMessage">Outputs error message if capture fails.</param>
         /// <returns>Binary byte array of the ISO template, or null if capture failed.</returns>
-        public byte[] CaptureFingerprint(int timeoutSeconds, out int qualityScore, out string errorMessage)
+        public byte[] CaptureFingerprint(int timeoutSecondsOrMs, out int qualityScore, out string errorMessage)
         {
             qualityScore = 0;
             errorMessage = string.Empty;
 
             try
             {
-                // Send timeout parameter in the URL so the optical red light stays on for the specified seconds
-                string url = $"{_agentUrl}/mfs100/capture?timeout={timeoutSeconds}";
+                // Send timeout parameter in the URL so the optical red light stays on for the specified duration
+                string url = $"{_agentUrl}/mfs100/capture?timeout={timeoutSecondsOrMs}";
                 var response = _http.PostAsync(url, null).GetAwaiter().GetResult();
                 string jsonString = response.Content.ReadAsStringAsync().GetAwaiter().GetResult();
 
@@ -290,17 +290,29 @@ public class Program
 
 ---
 
-## 3. Method Summary Table
+## 3. How Scanner Illumination & Timeout Works
+
+* **Red Light Stays Lit Waiting for Finger**: When `CaptureFingerprint()` is called, the Mantra MFS100 red optical sensor stays steadily illuminated and actively waits up to your specified duration (e.g. 20 seconds) for the user to place their finger flat and firmly on the scanner glass.
+* **Instant Capture Upon Placement**: As soon as friction ridges touch the glass and reach the quality threshold, the biometric image is captured, the red light turns off, and the ISO template is returned immediately.
+* **Flexible Timeout Values**:
+  * You can pass seconds (e.g. `10`, `15`, `20`, `30`).
+  * You can also pass milliseconds (e.g. `10000`, `20000`).
+  * Any value under 5 seconds is automatically clamped to a safe minimum of 5 seconds so the user has sufficient time to reach out and place their finger.
+* **Timeout Behavior**: If no finger is placed on the scanner within the allotted time, the red light turns off and returns: `"Capture timed out after {X} seconds. No finger was placed on the scanner."`
+
+---
+
+## 4. Method Summary Table
 
 | Method Name | Parameters | Returns | Purpose |
 |---|---|---|---|
 | **`CheckDevice`** | `out string serialNo, out string errorMessage` | `bool` | Pings agent port 8034, detects USB scanner, verifies calibration. |
-| **`CaptureFingerprint`** | `out int qualityScore, out string errorMessage` | `byte[]` | Lights up optical sensor, detects finger touch, returns standard ISO 19794-2 template bytes. |
+| **`CaptureFingerprint`** | `[int timeout], out int qualityScore, out string errorMessage` | `byte[]` | Lights up optical sensor, waits for finger placement, returns standard ISO 19794-2 template bytes. |
 | **`CompareFingerprints`** | `byte[] stored, byte[] live, out int score, out string error` | `bool` | Matches live template against database record. Returns `true` if `score >= 1400`. |
 
 ---
 
-## 4. What is Required on the User's PC
+## 5. What is Required on the User's PC
 
 * The physical **Mantra MFS100** scanner plugged into a USB port.
 * The official **Mantra MFS100 Driver** installed.

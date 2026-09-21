@@ -63,12 +63,13 @@ namespace CentralMFA.Utils
         // 2. CAPTURE FINGERPRINT DATA FROM DEVICE (WITH CONFIGURABLE TIMEOUT)
         // =========================================================================
         /// <summary>
-        /// Communicates with MfaScannerAgent to turn on the optical sensor and return the ISO-19794-2 template bytes.
+        /// Communicates with MfaScannerAgent to activate the optical scanner and wait for finger placement.
+        /// The red optical light remains actively illuminated waiting for the finger to be placed firmly on the glass.
         /// </summary>
-        /// <param name="timeoutSeconds">Number of seconds the red light stays ON waiting for finger placement (e.g. 15, 20, 30s).</param>
+        /// <param name="timeoutSecondsOrMs">Duration the red light stays ON waiting for finger placement. Accepts seconds (e.g. 10, 15, 20, 30s) or milliseconds (e.g. 10000, 20000ms). Default: 20 seconds.</param>
         /// <param name="qualityScore">Output quality score (0 to 100).</param>
         /// <param name="errorMessage">Output error message if capture fails.</param>
-        public byte[] CaptureFingerprint(int timeoutSeconds, out int qualityScore, out string errorMessage)
+        public byte[] CaptureFingerprint(int timeoutSecondsOrMs, out int qualityScore, out string errorMessage)
         {
             qualityScore = 0;
             errorMessage = string.Empty;

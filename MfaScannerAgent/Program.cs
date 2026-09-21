@@ -279,71 +279,111 @@ namespace MfaScannerAgent
                 return;
             }
 
-            int timeoutMs = 20000; // Default: 20 seconds of illumination time
+            // Parse timeout smartly: support seconds (e.g. 10, 20, 30) or milliseconds (e.g. 10000, 20000)
+            int rawTimeout = 20; // Default: 20 seconds
             if (request != null)
             {
-                if (!string.IsNullOrEmpty(request.QueryString["timeout"]))
-                {
-                    if (int.TryParse(request.QueryString["timeout"], out int tSec) && tSec > 0)
-                    {
-                        timeoutMs = tSec * 1000;
-                    }
-                }
-                else if (request.HasEntityBody)
+                string tParam = request.QueryString["timeout"];
+                if (string.IsNullOrEmpty(tParam) && request.HasEntityBody)
                 {
                     try
                     {
                         using (var reader = new StreamReader(request.InputStream, request.ContentEncoding))
                         {
                             string body = reader.ReadToEnd();
-                            string tStr = ExtractJsonField(body, "TimeOut");
-                            if (string.IsNullOrEmpty(tStr)) tStr = ExtractJsonField(body, "timeout");
-                            if (!string.IsNullOrEmpty(tStr) && int.TryParse(tStr, out int bSec) && bSec > 0)
-                            {
-                                timeoutMs = bSec * 1000;
-                            }
+                            tParam = ExtractJsonField(body, "TimeOut");
+                            if (string.IsNullOrEmpty(tParam)) tParam = ExtractJsonField(body, "timeout");
                         }
                     }
                     catch { }
                 }
+
+                if (!string.IsNullOrEmpty(tParam) && int.TryParse(tParam, out int parsed) && parsed > 0)
+                {
+                    rawTimeout = parsed;
+                }
             }
+
+            // If rawTimeout <= 120, treat as seconds (e.g. 10s, 20s, 30s)
+            // If rawTimeout > 120, treat as milliseconds (e.g. 5000ms, 10000ms, 20000ms)
+            int timeoutMs = (rawTimeout <= 120) ? (rawTimeout * 1000) : rawTimeout;
+
+            // Enforce minimum 5 seconds and maximum 60 seconds for optical illumination
+            if (timeoutMs < 5000) timeoutMs = 5000;
+            if (timeoutMs > 60000) timeoutMs = 60000;
 
             byte[] templateBytes = null;
             int quality = 0;
             string error = null;
 
+            int durationSec = timeoutMs / 1000;
             Console.ForegroundColor = ConsoleColor.Cyan;
-            Console.WriteLine(">>> [HARDWARE] Activating Mantra MFS100 optical sensor (red light on for " + (timeoutMs / 1000) + "s)...");
+            Console.WriteLine(">>> [HARDWARE] Activating Mantra MFS100 optical sensor (red light ON for up to " + durationSec + "s)...");
             Console.WriteLine("    Please place your finger flat and firmly on the scanner glass.");
             Console.ResetColor();
 
             try
             {
-                // Create FingerData instance
                 Type fdType = _sdkAssembly.GetType("MANTRA.FingerData");
-                object fdObj = Activator.CreateInstance(fdType);
-
-                // Call AutoCapture(FingerData&, int Timeout, bool ShowPreview, bool IsDetectFinger)
                 MethodInfo autoCap = _deviceType.GetMethod("AutoCapture");
-                object[] args = new object[] { fdObj, timeoutMs, false, true };
-                int ret = (int)autoCap.Invoke(_device, args);
 
-                if (ret == 0 && args[0] != null)
+                var sw = System.Diagnostics.Stopwatch.StartNew();
+
+                // Loop within the timeoutMs window in case of transient finger lift or placement adjustment (-1324)
+                while (sw.ElapsedMilliseconds < timeoutMs)
                 {
-                    dynamic fd = args[0];
-                    quality = fd.Quality;
-                    templateBytes = (byte[])fd.ISOTemplate;
-                    Console.ForegroundColor = ConsoleColor.Green;
-                    Console.WriteLine(">>> [HARDWARE SUCCESS] Biometric captured! Size: " + templateBytes.Length + " bytes, Quality: " + quality + "/100");
-                    Console.ResetColor();
+                    int remainingMs = (int)(timeoutMs - sw.ElapsedMilliseconds);
+                    if (remainingMs < 1000) remainingMs = 1000;
+
+                    object fdObj = Activator.CreateInstance(fdType);
+
+                    // Critical fix: IsDetectFinger MUST be false (args[3] = false)!
+                    // When false, the Mantra driver turns on the red light and WAITS for the finger to be placed.
+                    // When true, it checks frame 0 immediately and fails with -1324 if no finger is already touching the glass!
+                    object[] args = new object[] { fdObj, remainingMs, false, false };
+                    int ret = (int)autoCap.Invoke(_device, args);
+
+                    if (ret == 0 && args[0] != null)
+                    {
+                        dynamic fd = args[0];
+                        quality = fd.Quality;
+                        templateBytes = (byte[])fd.ISOTemplate;
+                        Console.ForegroundColor = ConsoleColor.Green;
+                        Console.WriteLine(">>> [HARDWARE SUCCESS] Biometric captured! Size: " + templateBytes.Length + " bytes, Quality: " + quality + "/100");
+                        Console.ResetColor();
+                        error = null;
+                        break;
+                    }
+                    else if (ret == -1324) // Finger not placed properly or removed too quickly
+                    {
+                        // If we still have time remaining, keep the sensor active and allow user to place finger firmly
+                        if (sw.ElapsedMilliseconds + 1500 < timeoutMs)
+                        {
+                            Thread.Sleep(200);
+                            continue;
+                        }
+                        else
+                        {
+                            error = "Finger was not placed properly or removed too quickly. Please place finger flat and firmly on the scanner glass.";
+                            break;
+                        }
+                    }
+                    else if (ret == -1140) // Timeout
+                    {
+                        error = "Capture timed out after " + durationSec + " seconds. No finger was placed on the scanner.";
+                        break;
+                    }
+                    else
+                    {
+                        string errMsg = _device.GetErrorMsg(ret);
+                        error = "Hardware capture returned code " + ret + ": " + errMsg;
+                        break;
+                    }
                 }
-                else
+
+                if (templateBytes == null && string.IsNullOrEmpty(error))
                 {
-                    string errMsg = _device.GetErrorMsg(ret);
-                    error = "Hardware capture returned code " + ret + ": " + errMsg;
-                    Console.ForegroundColor = ConsoleColor.Red;
-                    Console.WriteLine(">>> [HARDWARE ERROR] " + error);
-                    Console.ResetColor();
+                    error = "Capture timed out after " + durationSec + " seconds. No finger was placed on the scanner.";
                 }
             }
             catch (Exception ex)
@@ -353,6 +393,13 @@ namespace MfaScannerAgent
                 error = root.Message;
                 Console.ForegroundColor = ConsoleColor.Red;
                 Console.WriteLine(">>> [EXCEPTION] Hardware capture failed: " + error);
+                Console.ResetColor();
+            }
+
+            if (error != null)
+            {
+                Console.ForegroundColor = ConsoleColor.Yellow;
+                Console.WriteLine(">>> [HARDWARE NOTICE] " + error);
                 Console.ResetColor();
             }
 
