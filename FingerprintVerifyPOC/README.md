@@ -29,6 +29,8 @@ A browser cannot open a USB device, so **every** web fingerprint solution needs 
 |---|---|---|
 | **Web** (default) | `FingerprintVerifyPOC.exe` or `run_web.bat` | Opens `http://localhost:8035/` in the browser. This is the page to show your head. |
 | Console | `FingerprintVerifyPOC.exe --console` or `run_console.bat` | Terminal demo: type a PC No and get the result. |
+| Enrol (console) | `FingerprintVerifyPOC.exe --enroll` or `run_enroll_console.bat` | Enrol fingers into the POC table. |
+| Import | `FingerprintVerifyPOC.exe --import ALL` or `import_existing.bat` | Copy existing templates into the POC table. |
 | Scripted | `FingerprintVerifyPOC.exe --pcno 123456` | One verification. Prints JSON and returns an exit code (below). |
 
 Later, your **transaction web application** calls the same local service from JavaScript (see [Web integration](#web-integration-for-the-transaction-application)).
@@ -43,6 +45,21 @@ Run `Sql/Create_POC_View.sql` after filling in the real names. It creates the vi
 * Anything else means the main table holds images or a vendor-specific template from different software, and this SDK cannot match it. Find out which device and software enrolled the fingerprints before the demo.
 
 Templates stored as text (Base64 or HEX in CLOB/VARCHAR2) also work (`TemplateEncoding`).
+
+## 1b. Independent testing: the POC's own enrolment table (`FP_POC_ENROLL`)
+
+To test without depending on the main table, enrol fingers into a separate table. Oracle 11g R2 or newer is supported.
+
+1. **Create the table.** Run `Sql/Create_POC_Enroll_Table.sql`, or let the program create it on start if the DB user has CREATE TABLE. The DB user needs SELECT/INSERT/UPDATE/DELETE on it. The table holds one row per (PCNO, finger).
+2. **Enrol.** Open `http://localhost:8035/enroll` (there's a link on the main page), or use `run_enroll_console.bat`.
+   1. Enter the PC No and choose the finger.
+   2. The light blinks. Place the finger, lift it, then place the same finger again.
+   3. The two scans must match each other, which ensures it's the same finger placed properly. Then the better-quality one is saved.
+   4. The page lists that PC No's fingers and can delete them.
+3. **Port existing test data** (optional). Run `import_existing.bat` (all PC Nos) or `import_existing.bat 123456` (one PC No). It reads from `ImportSourceTable` (default `FP_AUTH_V`) through the same decoder, so BLOB, Base64 and HEX all work. Rows that aren't ISO/ANSI templates are skipped and listed. The SQL file also has a plain-SQL copy for raw-BLOB sources.
+4. **Verify against it.** Set `<add key="FpSourceTable" value="FP_POC_ENROLL" />` in the `.config` and restart the program. Set it back to `FP_AUTH_V` to verify against the main table again.
+
+The main fingerprint table is never written to. Enrolment requests are only accepted from the local page, never from another website. To turn the Enroll page off, set `EnrollEnabled=false`.
 
 ## 2. What to install on the test PC
 

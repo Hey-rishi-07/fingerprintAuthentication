@@ -21,15 +21,24 @@ namespace FingerprintVerifyPOC
         private static readonly Regex SafeIdentifier = new Regex(@"^[A-Za-z][A-Za-z0-9_$#]*(\.[A-Za-z][A-Za-z0-9_$#]*)?$");
 
         private readonly Settings _s;
+        private readonly string _table, _pcnoCol, _tmplCol, _fingerCol;
 
+        public string TableName { get { return _table; } }
+
+        /// <summary>Reads from the verification source (FpSourceTable + Fp*Column settings).</summary>
         public FingerprintRepository(Settings s)
+            : this(s, s.SourceTable, s.PcnoColumn, s.TemplateColumn, s.FingerColumn) { }
+
+        /// <summary>Reads from any table/view (used by --import to read the main fingerprint view).</summary>
+        public FingerprintRepository(Settings s, string table, string pcnoCol, string tmplCol, string fingerCol)
         {
             _s = s;
+            _table = table; _pcnoCol = pcnoCol; _tmplCol = tmplCol; _fingerCol = fingerCol;
             // Table/column names come from config and are concatenated into SQL, so validate them.
-            Check(_s.SourceTable, "FpSourceTable");
-            Check(_s.PcnoColumn, "FpPcnoColumn");
-            Check(_s.TemplateColumn, "FpTemplateColumn");
-            if (!string.IsNullOrEmpty(_s.FingerColumn)) Check(_s.FingerColumn, "FpFingerColumn");
+            Check(_table, "table name");
+            Check(_pcnoCol, "PCNO column");
+            Check(_tmplCol, "template column");
+            if (!string.IsNullOrEmpty(_fingerCol)) Check(_fingerCol, "finger column");
         }
 
         public bool TestConnection(out string message)
@@ -40,10 +49,10 @@ namespace FingerprintVerifyPOC
                 using (var cmd = conn.CreateCommand())
                 {
                     conn.Open();
-                    cmd.CommandText = "SELECT COUNT(*) FROM " + _s.SourceTable + " WHERE ROWNUM = 1";
+                    cmd.CommandText = "SELECT COUNT(*) FROM " + _table + " WHERE ROWNUM = 1";
                     cmd.ExecuteScalar();
                 }
-                message = "Oracle OK (" + _s.SourceTable + " is readable)";
+                message = "Oracle OK (" + _table + " is readable)";
                 return true;
             }
             catch (Exception ex)
@@ -57,10 +66,10 @@ namespace FingerprintVerifyPOC
         {
             var list = new List<StoredTemplate>();
 
-            string sql = "SELECT " + _s.TemplateColumn +
-                         (string.IsNullOrEmpty(_s.FingerColumn) ? "" : ", " + _s.FingerColumn) +
-                         " FROM " + _s.SourceTable +
-                         " WHERE " + _s.PcnoColumn + " = :pcno";
+            string sql = "SELECT " + _tmplCol +
+                         (string.IsNullOrEmpty(_fingerCol) ? "" : ", " + _fingerCol) +
+                         " FROM " + _table +
+                         " WHERE " + _pcnoCol + " = :pcno";
 
             using (var conn = new OracleConnection(_s.ConnectionString))
             using (var cmd = conn.CreateCommand())
@@ -81,7 +90,7 @@ namespace FingerprintVerifyPOC
                         byte[] data = Decode(r.GetValue(0));
                         if (data == null || data.Length == 0) continue;
 
-                        string label = string.IsNullOrEmpty(_s.FingerColumn) || r.IsDBNull(1)
+                        string label = string.IsNullOrEmpty(_fingerCol) || r.IsDBNull(1)
                             ? "row" + row
                             : Convert.ToString(r.GetValue(1));
                         list.Add(new StoredTemplate { FingerLabel = label, Data = data });
@@ -89,6 +98,38 @@ namespace FingerprintVerifyPOC
                 }
             }
             return list;
+        }
+
+        /// <summary>Streams every row (PCNO, finger, decoded template) - used by --import.</summary>
+        public void ReadAll(string onlyPcno, Action<string, string, byte[]> onRow)
+        {
+            string sql = "SELECT " + _pcnoCol + ", " + _tmplCol +
+                         (string.IsNullOrEmpty(_fingerCol) ? "" : ", " + _fingerCol) +
+                         " FROM " + _table +
+                         (onlyPcno != null ? " WHERE " + _pcnoCol + " = :pcno" : "") +
+                         " ORDER BY " + _pcnoCol;
+            using (var conn = new OracleConnection(_s.ConnectionString))
+            using (var cmd = conn.CreateCommand())
+            {
+                conn.Open();
+                cmd.CommandText = sql;
+                cmd.BindByName = true;
+                cmd.InitialLOBFetchSize = -1;
+                if (onlyPcno != null)
+                    cmd.Parameters.Add(new OracleParameter("pcno", OracleDbType.Varchar2, onlyPcno, ParameterDirection.Input));
+                using (OracleDataReader r = cmd.ExecuteReader())
+                {
+                    while (r.Read())
+                    {
+                        if (r.IsDBNull(0) || r.IsDBNull(1)) continue;
+                        string pcno = Convert.ToString(r.GetValue(0)).Trim();
+                        string finger = string.IsNullOrEmpty(_fingerCol) || r.IsDBNull(2) ? null : Convert.ToString(r.GetValue(2));
+                        byte[] data = null;
+                        try { data = Decode(r.GetValue(1)); } catch { }
+                        onRow(pcno, finger, data);
+                    }
+                }
+            }
         }
 
         /// <summary>Handles BLOB/RAW (byte[]) as well as Base64/HEX text stored in CLOB/VARCHAR2.</summary>

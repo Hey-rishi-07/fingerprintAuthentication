@@ -20,11 +20,13 @@ namespace FingerprintVerifyPOC
         private readonly Verifier _verifier;
         private readonly Scanner _scanner;
         private readonly FingerprintRepository _repo;
+        private readonly Enroller _enroller;
         private HttpListener _listener;
 
-        public WebHost(Settings s, Verifier verifier, Scanner scanner, FingerprintRepository repo)
+        public WebHost(Settings s, Verifier verifier, Scanner scanner, FingerprintRepository repo, Enroller enroller)
         {
             _s = s;
+            _enroller = enroller;
             _verifier = verifier;
             _scanner = scanner;
             _repo = repo;
@@ -76,6 +78,10 @@ namespace FingerprintVerifyPOC
                 {
                     Send(res, 200, "text/html; charset=utf-8", WebPage.Html(_s));
                 }
+                else if (path.StartsWith("/enroll") || path.StartsWith("/api/enroll"))
+                {
+                    HandleEnroll(req, res, path);
+                }
                 else if (path == "/api/status")
                 {
                     string dbMsg;
@@ -111,6 +117,49 @@ namespace FingerprintVerifyPOC
             {
                 try { Send(res, 500, "application/json; charset=utf-8", "{\"error\":\"" + Json.Escape(ex.Message) + "\"}"); } catch { }
             }
+        }
+
+        private void HandleEnroll(HttpListenerRequest req, HttpListenerResponse res, string path)
+        {
+            const string J = "application/json; charset=utf-8";
+            if (!_s.EnrollEnabled) { Send(res, 404, J, "{\"ok\":false,\"message\":\"Enrolment is disabled (EnrollEnabled=false)\"}"); return; }
+
+            // Enrolment changes data: only the local page may use it, never another website.
+            string origin = req.Headers["Origin"];
+            if (!string.IsNullOrEmpty(origin) &&
+                !origin.StartsWith("http://localhost:" + _s.HttpPort, StringComparison.OrdinalIgnoreCase) &&
+                !origin.StartsWith("http://127.0.0.1:" + _s.HttpPort, StringComparison.OrdinalIgnoreCase))
+            {
+                Send(res, 403, J, "{\"ok\":false,\"message\":\"Enrolment is only allowed from the local page\"}");
+                return;
+            }
+
+            if (path == "/enroll") { Send(res, 200, "text/html; charset=utf-8", WebPage.EnrollHtml(_s)); return; }
+
+            string body = "";
+            if (req.HasEntityBody)
+                using (var rd = new StreamReader(req.InputStream, req.ContentEncoding ?? Encoding.UTF8)) body = rd.ReadToEnd();
+            Func<string, string> arg = k => Json.Field(body, k) ?? req.QueryString[k];
+
+            if (path == "/api/enroll/list")
+                Send(res, 200, J, _enroller.ListJson(arg("pcno")));
+            else if (path == "/api/enroll/capture" && req.HttpMethod == "POST")
+            {
+                Console.WriteLine("[ENROLL] " + DateTime.Now.ToString("HH:mm:ss") + " capture");
+                Send(res, 200, J, _enroller.CaptureJson(arg("blink") == "true"));
+            }
+            else if (path == "/api/enroll/save" && req.HttpMethod == "POST")
+            {
+                string json = _enroller.EnrollJson(arg("pcno"), arg("finger"), arg("token1"), arg("token2"), Environment.UserName);
+                Console.WriteLine("[ENROLL] " + DateTime.Now.ToString("HH:mm:ss") + " PCNO " + arg("pcno") + " finger " + arg("finger") + " -> " + json);
+                Send(res, 200, J, json);
+            }
+            else if (path == "/api/enroll/delete" && req.HttpMethod == "POST")
+            {
+                Console.WriteLine("[ENROLL] delete PCNO " + arg("pcno") + " finger " + arg("finger"));
+                Send(res, 200, J, _enroller.DeleteJson(arg("pcno"), arg("finger")));
+            }
+            else Send(res, 404, J, "{\"ok\":false,\"message\":\"not found\"}");
         }
 
         private void AddCors(HttpListenerRequest req, HttpListenerResponse res)

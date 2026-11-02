@@ -9,6 +9,9 @@ namespace FingerprintVerifyPOC
     ///   FingerprintVerifyPOC.exe --no-browser    -> web mode without opening the browser (used at logon)
     ///   FingerprintVerifyPOC.exe --console       -> interactive console: type PCNO, verify, repeat
     ///   FingerprintVerifyPOC.exe --diag 123456   -> explains why matching fails, saves logs\diag_*.txt
+    ///   FingerprintVerifyPOC.exe --enroll        -> enrol fingers into the POC table from the console
+    ///   FingerprintVerifyPOC.exe --import ALL    -> copy existing templates (ImportSourceTable) into the POC table
+    ///   FingerprintVerifyPOC.exe --import 123456 -> same, one PC No
     ///   FingerprintVerifyPOC.exe --pcno 123456   -> one verification, prints JSON, exit code = result
     ///
     /// Exit codes (for --pcno): 0 VERIFIED, 1 NOT_MATCHED, 2 TIMEOUT, 3 NOT_ENROLLED,
@@ -24,11 +27,15 @@ namespace FingerprintVerifyPOC
             bool consoleMode = false;
             bool noBrowser = false;
             string diagPcno = null;
+            bool enrollMode = false;
+            string importArg = null;
             for (int i = 0; i < args.Length; i++)
             {
                 string a = args[i].ToLowerInvariant();
                 if (a == "--console" || a == "-c") consoleMode = true;
                 else if (a == "--no-browser") noBrowser = true;
+                else if (a == "--enroll") enrollMode = true;
+                else if (a == "--import") importArg = (i + 1 < args.Length) ? args[++i] : "ALL";
                 else if (a == "--diag") diagPcno = (i + 1 < args.Length) ? args[++i] : "";
                 else if ((a == "--pcno" || a == "-p") && i + 1 < args.Length) pcnoArg = args[++i];
             }
@@ -46,9 +53,38 @@ namespace FingerprintVerifyPOC
                 return 9;
             }
 
+            EnrollRepository enrollRepo = null;
+            try
+            {
+                enrollRepo = new EnrollRepository(s);
+            }
+            catch (Exception ex)
+            {
+                Error("Configuration error: " + ex.Message);
+                return 9;
+            }
+
+            if (importArg != null)
+            {
+                try
+                {
+                    enrollRepo.EnsureTable();
+                    int rc = Enroller.Import(s, enrollRepo, importArg.Equals("ALL", StringComparison.OrdinalIgnoreCase) ? null : importArg);
+                    try { Oracle.ManagedDataAccess.Client.OracleConnection.ClearAllPools(); } catch { }
+                    Environment.Exit(rc);
+                }
+                catch (Exception ex)
+                {
+                    Error("Import failed: " + ex.Message);
+                    Environment.Exit(5);
+                }
+                return 0;
+            }
+
             using (var scanner = new Scanner())
             {
                 var verifier = new Verifier(s, scanner, repo);
+                var enroller = new Enroller(s, scanner, enrollRepo);
 
                 if (pcnoArg != null)
                 {
@@ -76,13 +112,25 @@ namespace FingerprintVerifyPOC
                     return 0;
                 }
 
+                if (s.EnrollEnabled || enrollMode)
+                {
+                    try { enrollRepo.EnsureTable(); Status(true, "Enrol table " + enrollRepo.TableName + " ready"); }
+                    catch (Exception ex) { Status(false, "Enrol table " + enrollRepo.TableName + ": " + ex.Message + " (run Sql\\Create_POC_Enroll_Table.sql)"); }
+                }
+
+                if (enrollMode)
+                {
+                    enroller.RunConsole();
+                    return 0;
+                }
+
                 if (consoleMode)
                 {
                     RunConsole(verifier);
                     return 0;
                 }
 
-                var web = new WebHost(s, verifier, scanner, repo);
+                var web = new WebHost(s, verifier, scanner, repo, enroller);
                 if (s.OpenBrowser && !noBrowser)
                 {
                     ThreadPool.QueueUserWorkItem(_ =>
@@ -163,6 +211,13 @@ namespace FingerprintVerifyPOC
                 else if (r.Status == VerifyStatus.NOT_MATCHED) { Console.Beep(400, 250); Console.Beep(400, 250); }
             }
             catch { }
+        }
+
+        public static void PrintLine(bool ok, string text)
+        {
+            Console.ForegroundColor = ok ? ConsoleColor.Green : ConsoleColor.Yellow;
+            Console.WriteLine("  " + text);
+            Console.ResetColor();
         }
 
         private static void Banner(Settings s, Scanner scanner, FingerprintRepository repo)

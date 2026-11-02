@@ -47,6 +47,8 @@
     <Compile Include="WebHost.cs" />
     <Compile Include="WebPage.cs" />
     <Compile Include="Diagnostics.cs" />
+    <Compile Include="EnrollRepository.cs" />
+    <Compile Include="Enroller.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="App.config" />

@@ -29,6 +29,14 @@ namespace FingerprintVerifyPOC
 
         public int BlinkSettleMs;
 
+        public bool EnrollEnabled;
+        public string EnrollTable;
+        public int EnrollMinQuality;
+        public string ImportSourceTable;
+        public string ImportPcnoColumn;
+        public string ImportTemplateColumn;
+        public string ImportFingerColumn;
+
         public bool TryIso { get { return !string.Equals(TemplateFormat, "ANSI", StringComparison.OrdinalIgnoreCase); } }
         public bool TryAnsi { get { return !string.Equals(TemplateFormat, "ISO", StringComparison.OrdinalIgnoreCase); } }
 
@@ -55,7 +63,14 @@ namespace FingerprintVerifyPOC
                 HttpPort = Int("HttpPort", 8035),
                 AllowedOrigins = Str("AllowedOrigins", "*"),
                 OpenBrowser = Str("OpenBrowser", "true").Equals("true", StringComparison.OrdinalIgnoreCase),
-                LogFolder = Str("LogFolder", "logs")
+                LogFolder = Str("LogFolder", "logs"),
+                EnrollEnabled = Str("EnrollEnabled", "true").Equals("true", StringComparison.OrdinalIgnoreCase),
+                EnrollTable = Str("EnrollTable", "FP_POC_ENROLL"),
+                EnrollMinQuality = Int("EnrollMinQuality", 60),
+                ImportSourceTable = Str("ImportSourceTable", "FP_AUTH_V"),
+                ImportPcnoColumn = Str("ImportPcnoColumn", "PCNO"),
+                ImportTemplateColumn = Str("ImportTemplateColumn", "FINGER_TEMPLATE"),
+                ImportFingerColumn = Str("ImportFingerColumn", "FINGER_NO")
             };
         }
 

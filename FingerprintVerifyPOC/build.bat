@@ -20,7 +20,7 @@ if not exist dist mkdir dist
 "%CSC%" /nologo /target:exe /platform:x86 /optimize+ /out:dist\FingerprintVerifyPOC.exe ^
   /reference:System.dll /reference:System.Core.dll /reference:System.Configuration.dll /reference:System.Data.dll ^
   /reference:"%LIB%\Oracle.ManagedDataAccess.dll" ^
-  Program.cs Settings.cs Scanner.cs FingerprintRepository.cs Verifier.cs WebHost.cs WebPage.cs Diagnostics.cs
+  Program.cs Settings.cs Scanner.cs FingerprintRepository.cs Verifier.cs WebHost.cs WebPage.cs Diagnostics.cs EnrollRepository.cs Enroller.cs
 if errorlevel 1 (
   echo BUILD FAILED
   exit /b 1
