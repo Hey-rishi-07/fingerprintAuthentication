@@ -1,4 +1,6 @@
+bin/
+obj/
+.vs/
+*.user
 FingerprintVerifyPOC/dist/
-FingerprintVerifyPOC/bin/
-FingerprintVerifyPOC/obj/
 FingerprintVerifyPOC/logs/

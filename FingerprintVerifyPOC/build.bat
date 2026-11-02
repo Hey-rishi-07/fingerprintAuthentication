@@ -14,7 +14,7 @@ if not exist "%CSC%" (
   exit /b 1
 )
 
-set LIB=..\Authentication\Lib
+set LIB=Lib
 if not exist dist mkdir dist
 
 "%CSC%" /nologo /target:exe /platform:x86 /optimize+ /out:dist\FingerprintVerifyPOC.exe ^

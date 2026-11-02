@@ -1,5 +1,17 @@
 # Fingerprint Verification POC (Mantra MFS100 + Oracle)
 
+**Folder layout**
+```
+FingerprintVerifyPOC.sln      <- open this in Visual Studio
+*.cs, App.config              program source + settings
+Lib\                          Mantra SDK + Oracle driver DLLs (copied next to the exe on build)
+Driver\MFS100_Driver_Setup.exe scanner driver for each PC
+Sql\Create_POC_View.sql       view over the main fingerprint table
+Deploy\*.bat                  run / install / uninstall scripts (copied into dist\)
+Docs\SCANNER_TROUBLESHOOTING.md
+build.bat                     build without Visual Studio -> dist\
+```
+
 This program verifies an employee against the fingerprints that are **already enrolled** in the main Oracle biometric table. It does no enrolment and never writes to the database.
 
 ```
@@ -38,8 +50,8 @@ Templates stored as text (Base64 or HEX in CLOB/VARCHAR2) also work (`TemplateEn
 |---|---|---|
 | 1 | **Windows 10/11** (Windows 7 SP1 also works) | |
 | 2 | **.NET Framework 4.5 or newer** | Already present on Windows 10/11. |
-| 3 | **Mantra MFS100 driver** | `MantraAttendance/MantraAttendance/MFS100_Driver_Setup/MFS100_Driver_Setup.exe` in this repo. Needs admin, once per PC. Plug in the scanner afterwards. |
-| 4 | **Stop the Mantra RD Service / AVDM** if it is installed | It locks the scanner (Init error `-1`). See `Authentication/MFS100_REQUIREMENTS_GUIDE.md`. |
+| 3 | **Mantra MFS100 driver** | `Driver\MFS100_Driver_Setup.exe` in this folder. Needs admin, once per PC. Plug in the scanner afterwards. |
+| 4 | **Stop the Mantra RD Service / AVDM** if it is installed | It locks the scanner (Init error `-1`). See `Docs/SCANNER_TROUBLESHOOTING.md`. |
 | 5 | **Network access to Oracle** (port 1521) | **No Oracle Client install needed**: `Oracle.ManagedDataAccess.dll` is shipped with the program. |
 | 6 | The `dist` folder of this program | Contents are listed below. |
 
@@ -61,7 +73,7 @@ MFS100Dll.dll  iengine_ansi_iso.dll (32-bit native SDK)
 run_web.bat  run_console.bat  install.bat  uninstall.bat
 ```
 
-Opening `FingerprintVerifyPOC.csproj` in Visual Studio also works. It is built as x86 because the MFS100 native DLLs are 32-bit.
+Or open `FingerprintVerifyPOC.sln` in Visual Studio and press Ctrl+F5. It is built as x86 because the MFS100 native DLLs are 32-bit.
 
 ## 4. Configure: `FingerprintVerifyPOC.exe.config`
 
@@ -121,7 +133,7 @@ if (r.verified) { /* allow the transaction */ }
 
 In this POC the user's PC does the matching and reports the result. That is fine for a demonstration, but for real transactions **the server must not trust a "verified: true" coming from the client PC**, because a user could fake that localhost response. The production flow should be:
 
-1. The local service only **captures** and returns the live ISO template. The existing `MfaScannerAgent` (`/mfs100/capture`, port 8034) already does this.
+1. The local service only **captures** and returns the live ISO template. (The older `MfaScannerAgent` project on the `main` branch has a `/mfs100/capture` endpoint that can be reused for this.)
 2. The browser posts that template together with the transaction to **your web server**.
 3. The **server** reads the enrolled templates from Oracle and matches them, then approves the transaction. It should also log to an audit table and add replay protection (a one-time nonce per transaction).
 
