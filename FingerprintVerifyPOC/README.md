@@ -7,12 +7,13 @@ FingerprintVerifyPOC.sln      <- open this in Visual Studio
 Lib\                          Mantra SDK + Oracle driver DLLs (copied next to the exe on build)
 Driver\MFS100_Driver_Setup.exe scanner driver for each PC
 Sql\Create_POC_View.sql       view over the main fingerprint table
+Sql\Create_POC_Enroll_Table.sql  the POC's own enrolment table + porting existing data
 Deploy\*.bat                  run / install / uninstall scripts (copied into dist\)
 Docs\SCANNER_TROUBLESHOOTING.md
 build.bat                     build without Visual Studio -> dist\
 ```
 
-This program verifies an employee against the fingerprints that are **already enrolled** in the main Oracle biometric table. It does no enrolment and never writes to the database.
+This program verifies an employee against the fingerprints that are **already enrolled** in the main Oracle biometric table. It never writes to the main table. For independent testing it can also enrol fingers into its own table, `FP_POC_ENROLL` (see 1b).
 
 ```
 PC No entered ─► read ALL enrolled fingers for that PCNO (Oracle view)
