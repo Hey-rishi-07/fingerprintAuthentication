@@ -91,7 +91,7 @@ namespace FingerprintVerifyPOC
         }
 
         /// <summary>Blinks the sensor light by briefly starting/stopping capture. Never throws.</summary>
-        public void Blink(int count, int onMs, int offMs)
+        public void Blink(int count, int onMs, int offMs, int settleMs)
         {
             if (count <= 0) return;
             lock (_sync)
@@ -111,6 +111,9 @@ namespace FingerprintVerifyPOC
                     try { stop.Invoke(_device, null); } catch { }
                     Thread.Sleep(offMs);
                 }
+                // make sure the blink capture is fully stopped before the real capture starts
+                try { stop.Invoke(_device, null); } catch { }
+                Thread.Sleep(Math.Max(0, settleMs));
             }
         }
 

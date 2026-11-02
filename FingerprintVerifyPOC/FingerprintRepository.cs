@@ -101,7 +101,12 @@ namespace FingerprintVerifyPOC
             {
                 if (enc == "BASE64" || enc == "HEX")
                     return DecodeText(System.Text.Encoding.ASCII.GetString(bytes), enc);
-                return bytes; // RAW / AUTO
+                // AUTO: a BLOB that actually contains Base64/HEX *text* (common when an app saved strings)
+                if (enc == "AUTO" && !StartsWithFmr(bytes) && IsAsciiText(bytes))
+                {
+                    try { return DecodeText(System.Text.Encoding.ASCII.GetString(bytes), "AUTO"); } catch { }
+                }
+                return bytes; // RAW
             }
 
             string text = Convert.ToString(value);
@@ -121,6 +126,45 @@ namespace FingerprintVerifyPOC
                 return b;
             }
             return Convert.FromBase64String(text);
+        }
+
+        public static bool StartsWithFmr(byte[] b)
+        {
+            return b != null && b.Length >= 4 && b[0] == 0x46 && b[1] == 0x4D && b[2] == 0x52 && b[3] == 0x00;
+        }
+
+        private static bool IsAsciiText(byte[] b)
+        {
+            int n = Math.Min(b.Length, 256);
+            for (int i = 0; i < n; i++)
+            {
+                byte c = b[i];
+                if (c == 9 || c == 10 || c == 13) continue;
+                if (c < 0x20 || c > 0x7E) return false;
+            }
+            return b.Length > 0;
+        }
+
+        /// <summary>Human readable description of a template, used by --diag.</summary>
+        public static string Describe(byte[] b)
+        {
+            if (b == null) return "(null)";
+            int n = Math.Min(b.Length, 16);
+            var hex = new System.Text.StringBuilder();
+            for (int i = 0; i < n; i++) hex.Append(b[i].ToString("X2")).Append(i % 4 == 3 ? " " : "");
+            string kind;
+            if (StartsWithFmr(b))
+            {
+                // ISO 19794-2:2005 -> 4-byte record length at offset 8; ANSI 378 -> 2-byte length at offset 8
+                long iso = b.Length >= 12 ? ((long)b[8] << 24) | ((long)b[9] << 16) | ((long)b[10] << 8) | b[11] : -1;
+                int ansi = b.Length >= 10 ? (b[8] << 8) | b[9] : -1;
+                if (iso == b.Length) kind = "ISO 19794-2 template (OK for MatchISO)";
+                else if (ansi == b.Length) kind = "ANSI 378 template (OK for MatchANSI)";
+                else kind = "FMR template (ISO/ANSI), length field does not match - may be truncated";
+            }
+            else if (IsAsciiText(b)) kind = "TEXT (Base64/HEX?) - not decoded, check TemplateEncoding";
+            else kind = "UNKNOWN binary - not ISO/ANSI (vendor-specific or image?) -> MFS100 cannot match it";
+            return b.Length + " bytes, header " + hex.ToString().Trim() + "  => " + kind;
         }
 
         private static void Check(string identifier, string key)

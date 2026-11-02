@@ -11,7 +11,7 @@ namespace FingerprintVerifyPOC
         public string PcnoColumn;
         public string TemplateColumn;
         public string FingerColumn;
-        public string TemplateFormat;     // ISO | ANSI
+        public string TemplateFormat;     // AUTO | ISO | ANSI
         public string TemplateEncoding;   // AUTO | RAW | BASE64 | HEX
 
         public int MatchThreshold;
@@ -27,7 +27,10 @@ namespace FingerprintVerifyPOC
         public bool OpenBrowser;
         public string LogFolder;
 
-        public bool IsAnsi { get { return string.Equals(TemplateFormat, "ANSI", StringComparison.OrdinalIgnoreCase); } }
+        public int BlinkSettleMs;
+
+        public bool TryIso { get { return !string.Equals(TemplateFormat, "ANSI", StringComparison.OrdinalIgnoreCase); } }
+        public bool TryAnsi { get { return !string.Equals(TemplateFormat, "ISO", StringComparison.OrdinalIgnoreCase); } }
 
         public static Settings Load()
         {
@@ -39,7 +42,7 @@ namespace FingerprintVerifyPOC
                 PcnoColumn = Str("FpPcnoColumn", "PCNO"),
                 TemplateColumn = Str("FpTemplateColumn", "FINGER_TEMPLATE"),
                 FingerColumn = Str("FpFingerColumn", ""),
-                TemplateFormat = Str("TemplateFormat", "ISO"),
+                TemplateFormat = Str("TemplateFormat", "AUTO"),
                 TemplateEncoding = Str("TemplateEncoding", "AUTO"),
                 MatchThreshold = Int("MatchThreshold", 1400),
                 CaptureTimeoutSeconds = Int("CaptureTimeoutSeconds", 10),
@@ -47,6 +50,7 @@ namespace FingerprintVerifyPOC
                 BlinkCount = Int("BlinkCount", 3),
                 BlinkOnMs = Int("BlinkOnMs", 250),
                 BlinkOffMs = Int("BlinkOffMs", 250),
+                BlinkSettleMs = Int("BlinkSettleMs", 700),
                 PcnoPattern = Str("PcnoPattern", "^[A-Za-z0-9_-]{1,30}$"),
                 HttpPort = Int("HttpPort", 8035),
                 AllowedOrigins = Str("AllowedOrigins", "*"),

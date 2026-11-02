@@ -32,8 +32,10 @@ WHERE   f.<TEMPLATE_COLUMN> IS NOT NULL
 --        MAX(DBMS_LOB.GETLENGTH(FINGER_TEMPLATE)) MAX_LEN
 -- FROM FP_AUTH_V GROUP BY PCNO ORDER BY FINGERS DESC;
 --
--- Template format check: an ISO 19794-2 template starts with bytes 46 4D 52 00 ("FMR\0").
+-- Template format check: ISO 19794-2 and ANSI 378 templates both start with 46 4D 52 00 ("FMR\0").
 -- SELECT PCNO, RAWTOHEX(DBMS_LOB.SUBSTR(FINGER_TEMPLATE, 8, 1)) HEADER FROM FP_AUTH_V WHERE ROWNUM <= 10;
---   464D5200 2030....  -> ISO 19794-2 (TemplateFormat=ISO)
---   464D5200 0000....  -> ANSI 378   (TemplateFormat=ANSI)
---   anything else      -> vendor-specific / image data: the MFS100 SDK cannot match it (see README)
+--   464D5200 20323000  -> ISO or ANSI template: OK (TemplateFormat=AUTO tries both)
+--   526B3153 ("Rk1S")   -> "Rk1S..." = Base64 text of a template: OK (TemplateEncoding=AUTO decodes it)
+--   34363444 ("464D...") -> HEX text of a template: OK
+--   anything else       -> vendor-specific / image data: the MFS100 SDK cannot match it
+-- Easiest: run  FingerprintVerifyPOC.exe --diag <PCNO>  which checks all of this and prints scores.

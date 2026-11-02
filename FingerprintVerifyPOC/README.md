@@ -81,18 +81,29 @@ Or open `FingerprintVerifyPOC.sln` in Visual Studio and press Ctrl+F5. It is bui
 |---|---|---|
 | `OracleDB` connection string | — | `User Id=..;Password=..;Data Source=//host:1521/SERVICE;` |
 | `FpSourceTable` / `FpPcnoColumn` / `FpTemplateColumn` / `FpFingerColumn` | `FP_AUTH_V` / `PCNO` / `FINGER_TEMPLATE` / `FINGER_NO` | Where the enrolled fingerprints are read from. |
-| `TemplateFormat` | `ISO` | `ISO` or `ANSI`. |
+| `TemplateFormat` | `AUTO` | `AUTO` tries MatchISO and MatchANSI and keeps the best score. `ISO` / `ANSI` restrict it to one. |
 | `TemplateEncoding` | `AUTO` | `RAW` (BLOB), `BASE64`, `HEX`, or `AUTO`. |
 | `MatchThreshold` | `1400` | Minimum score to accept. Calibrate it during the POC (see below). |
 | `CaptureTimeoutSeconds` | `10` | How long the light waits for a finger. |
 | `MinQuality` | `40` | A lower-quality capture asks the user to place the finger again (within the 10 s). |
-| `BlinkCount` / `BlinkOnMs` / `BlinkOffMs` | `3` / `250` / `250` | The blink before capture. Set `0` to just switch the light on. |
+| `BlinkCount` / `BlinkOnMs` / `BlinkOffMs` / `BlinkSettleMs` | `3` / `250` / `250` / `700` | The blink before capture, and the pause after it so the sensor is stable. Set `BlinkCount` to `0` to just switch the light on. |
 | `HttpPort` | `8035` | Local web service port. |
 | `AllowedOrigins` | `*` | Later, list only the transaction web app URL(s). |
 
 ### About the blink
 
 The MFS100 SDK has **no LED API**. The red light is on only while the sensor is capturing. The blink is made by starting and stopping a capture a few times, and then the light stays on for the 10-second wait (standard behaviour). If the blink misbehaves on a particular driver version, set `BlinkCount` to `0`.
+
+### When fingerprints do not match: run the diagnostics
+
+Run `run_diagnostics.bat` (or `FingerprintVerifyPOC.exe --diag 123456`), enter the PC No, and place the same finger twice. It prints, and saves to `logs\diag_*.txt`:
+
+1. **The stored templates for that PC No and their format.** It reports ISO, ANSI, Base64/HEX text, or an unknown format that the MFS100 SDK can't match.
+2. **The live capture's quality and format.**
+3. **A matcher self-test.** The live template is matched against itself, which must give a high score.
+4. **MatchISO and MatchANSI scores** against every stored finger.
+5. **A live-versus-live score for the same finger.** This shows what a real match scores with this matcher, so you can set `MatchThreshold`.
+6. **A plain-language explanation** of the likely cause.
 
 ### Calibrating `MatchThreshold`
 

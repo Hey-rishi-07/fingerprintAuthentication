@@ -8,6 +8,7 @@ namespace FingerprintVerifyPOC
     ///   FingerprintVerifyPOC.exe                 -> web mode: local page at http://localhost:8035/ (default)
     ///   FingerprintVerifyPOC.exe --no-browser    -> web mode without opening the browser (used at logon)
     ///   FingerprintVerifyPOC.exe --console       -> interactive console: type PCNO, verify, repeat
+    ///   FingerprintVerifyPOC.exe --diag 123456   -> explains why matching fails, saves logs\diag_*.txt
     ///   FingerprintVerifyPOC.exe --pcno 123456   -> one verification, prints JSON, exit code = result
     ///
     /// Exit codes (for --pcno): 0 VERIFIED, 1 NOT_MATCHED, 2 TIMEOUT, 3 NOT_ENROLLED,
@@ -22,11 +23,13 @@ namespace FingerprintVerifyPOC
             string pcnoArg = null;
             bool consoleMode = false;
             bool noBrowser = false;
+            string diagPcno = null;
             for (int i = 0; i < args.Length; i++)
             {
                 string a = args[i].ToLowerInvariant();
                 if (a == "--console" || a == "-c") consoleMode = true;
                 else if (a == "--no-browser") noBrowser = true;
+                else if (a == "--diag") diagPcno = (i + 1 < args.Length) ? args[++i] : "";
                 else if ((a == "--pcno" || a == "-p") && i + 1 < args.Length) pcnoArg = args[++i];
             }
 
@@ -59,6 +62,19 @@ namespace FingerprintVerifyPOC
                 }
 
                 Banner(s, scanner, repo);
+
+                if (diagPcno != null)
+                {
+                    if (diagPcno.Length == 0)
+                    {
+                        Console.Write("Enter PC No to diagnose: ");
+                        diagPcno = (Console.ReadLine() ?? "").Trim();
+                    }
+                    Diagnostics.Run(diagPcno, s, scanner, repo, verifier);
+                    Console.WriteLine("Press any key to exit...");
+                    try { Console.ReadKey(); } catch { }
+                    return 0;
+                }
 
                 if (consoleMode)
                 {

@@ -46,6 +46,7 @@
     <Compile Include="Verifier.cs" />
     <Compile Include="WebHost.cs" />
     <Compile Include="WebPage.cs" />
+    <Compile Include="Diagnostics.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="App.config" />

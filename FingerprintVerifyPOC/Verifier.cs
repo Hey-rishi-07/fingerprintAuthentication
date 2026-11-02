@@ -134,7 +134,7 @@ namespace FingerprintVerifyPOC
 
             // 3. Blink -> light stays on and waits up to N seconds for a finger
             progress("BLINK", "Get ready...");
-            _scanner.Blink(_s.BlinkCount, _s.BlinkOnMs, _s.BlinkOffMs);
+            _scanner.Blink(_s.BlinkCount, _s.BlinkOnMs, _s.BlinkOffMs, _s.BlinkSettleMs);
 
             progress("WAITING", "Place your finger on the scanner (" + _s.CaptureTimeoutSeconds + " s)");
             byte[] iso, ansi;
@@ -151,11 +151,10 @@ namespace FingerprintVerifyPOC
                 return r;
             }
 
-            byte[] probe = _s.IsAnsi ? ansi : iso;
-            if (probe == null || probe.Length == 0)
+            if ((iso == null || iso.Length == 0) && (ansi == null || ansi.Length == 0))
             {
                 r.Status = VerifyStatus.DEVICE_ERROR;
-                r.Message = "Scanner returned an empty " + (_s.IsAnsi ? "ANSI" : "ISO") + " template.";
+                r.Message = "Scanner returned an empty template.";
                 return r;
             }
 
@@ -165,8 +164,8 @@ namespace FingerprintVerifyPOC
             string lastErr = null;
             foreach (StoredTemplate t in templates)
             {
-                string err;
-                int score = _scanner.Match(probe, t.Data, _s.IsAnsi, out err);
+                string err, method;
+                int score = BestMatch(iso, ansi, t.Data, out method, out err);
                 r.TemplatesChecked++;
                 if (score < 0) { lastErr = err; continue; }
                 if (score > best) { best = score; r.MatchedFinger = t.FingerLabel; }
@@ -187,6 +186,28 @@ namespace FingerprintVerifyPOC
                             (best == 0 && lastErr != null ? " (" + lastErr + ")" : "");
             }
             return r;
+        }
+
+        /// <summary>Matches with MatchISO and/or MatchANSI (TemplateFormat) and returns the best score, -1 if all failed.</summary>
+        public int BestMatch(byte[] liveIso, byte[] liveAnsi, byte[] stored, out string method, out string error)
+        {
+            method = null;
+            error = null;
+            int best = -1;
+            string err;
+            if (_s.TryIso && liveIso != null && liveIso.Length > 0)
+            {
+                int sc = _scanner.Match(liveIso, stored, false, out err);
+                if (sc < 0) error = "ISO: " + err;
+                else if (sc > best) { best = sc; method = "ISO"; }
+            }
+            if (_s.TryAnsi && liveAnsi != null && liveAnsi.Length > 0)
+            {
+                int sc = _scanner.Match(liveAnsi, stored, true, out err);
+                if (sc < 0) error = (error == null ? "" : error + "; ") + "ANSI: " + err;
+                else if (sc > best) { best = sc; method = "ANSI"; }
+            }
+            return best;
         }
 
         /// <summary>Daily local log - useful to calibrate MatchThreshold from real scores during the POC.</summary>
