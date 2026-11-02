@@ -54,10 +54,10 @@ namespace FingerprintVerifyPOC
                     if (dot > 0) { owner = name.Substring(0, dot); name = name.Substring(dot + 1); }
                     cmd.BindByName = true;
                     cmd.CommandText = owner == null
-                        ? "SELECT COUNT(*) FROM USER_TABLES WHERE TABLE_NAME = :t"
-                        : "SELECT COUNT(*) FROM ALL_TABLES WHERE TABLE_NAME = :t AND OWNER = :o";
-                    cmd.Parameters.Add(new OracleParameter("t", name));
-                    if (owner != null) cmd.Parameters.Add(new OracleParameter("o", owner));
+                        ? "SELECT COUNT(*) FROM USER_TABLES WHERE TABLE_NAME = :p_t"
+                        : "SELECT COUNT(*) FROM ALL_TABLES WHERE TABLE_NAME = :p_t AND OWNER = :p_o";
+                    cmd.Parameters.Add(new OracleParameter("p_t", name));
+                    if (owner != null) cmd.Parameters.Add(new OracleParameter("p_o", owner));
                     if (Convert.ToInt32(cmd.ExecuteScalar()) > 0) return;
                 }
                 using (var cmd = conn.CreateCommand())
@@ -86,21 +86,21 @@ namespace FingerprintVerifyPOC
             {
                 cmd.BindByName = true;
                 cmd.CommandText =
-                    "MERGE INTO " + _table + " t USING (SELECT :pcno PCNO, :fno FINGER_NO FROM DUAL) s " +
+                    "MERGE INTO " + _table + " t USING (SELECT :p_pcno PCNO, :p_fno FINGER_NO FROM DUAL) s " +
                     "ON (t.PCNO = s.PCNO AND t.FINGER_NO = s.FINGER_NO) " +
-                    "WHEN MATCHED THEN UPDATE SET t.FINGER_TEMPLATE = :tmpl, t.TEMPLATE_FORMAT = :fmt, t.QUALITY = :q, " +
-                    "  t.SOURCE = :src, t.ENROLLED_ON = SYSDATE, t.ENROLLED_BY = :by " +
+                    "WHEN MATCHED THEN UPDATE SET t.FINGER_TEMPLATE = :p_tmpl, t.TEMPLATE_FORMAT = :p_fmt, t.QUALITY = :p_q, " +
+                    "  t.SOURCE = :p_src, t.ENROLLED_ON = SYSDATE, t.ENROLLED_BY = :p_by " +
                     "WHEN NOT MATCHED THEN INSERT (PCNO, FINGER_NO, FINGER_TEMPLATE, TEMPLATE_FORMAT, QUALITY, SOURCE, ENROLLED_ON, ENROLLED_BY) " +
-                    "  VALUES (:pcno, :fno, :tmpl, :fmt, :q, :src, SYSDATE, :by)";
-                cmd.Parameters.Add(new OracleParameter("pcno", OracleDbType.Varchar2, pcno, ParameterDirection.Input));
-                cmd.Parameters.Add(new OracleParameter("fno", OracleDbType.Int32, fingerNo, ParameterDirection.Input));
-                var blob = new OracleParameter("tmpl", OracleDbType.Blob);
+                    "  VALUES (:p_pcno, :p_fno, :p_tmpl, :p_fmt, :p_q, :p_src, SYSDATE, :p_by)";
+                cmd.Parameters.Add(new OracleParameter("p_pcno", OracleDbType.Varchar2, pcno, ParameterDirection.Input));
+                cmd.Parameters.Add(new OracleParameter("p_fno", OracleDbType.Int32, fingerNo, ParameterDirection.Input));
+                var blob = new OracleParameter("p_tmpl", OracleDbType.Blob);
                 blob.Value = template;
                 cmd.Parameters.Add(blob);
-                cmd.Parameters.Add(new OracleParameter("fmt", OracleDbType.Varchar2, format, ParameterDirection.Input));
-                cmd.Parameters.Add(new OracleParameter("q", OracleDbType.Int32, quality, ParameterDirection.Input));
-                cmd.Parameters.Add(new OracleParameter("src", OracleDbType.Varchar2, source, ParameterDirection.Input));
-                cmd.Parameters.Add(new OracleParameter("by", OracleDbType.Varchar2, by ?? "", ParameterDirection.Input));
+                cmd.Parameters.Add(new OracleParameter("p_fmt", OracleDbType.Varchar2, format, ParameterDirection.Input));
+                cmd.Parameters.Add(new OracleParameter("p_q", OracleDbType.Int32, quality, ParameterDirection.Input));
+                cmd.Parameters.Add(new OracleParameter("p_src", OracleDbType.Varchar2, source, ParameterDirection.Input));
+                cmd.Parameters.Add(new OracleParameter("p_by", OracleDbType.Varchar2, by ?? "", ParameterDirection.Input));
                 cmd.ExecuteNonQuery();
             }
         }
@@ -113,8 +113,8 @@ namespace FingerprintVerifyPOC
             {
                 cmd.BindByName = true;
                 cmd.CommandText = "SELECT FINGER_NO, NVL(QUALITY,0), DBMS_LOB.GETLENGTH(FINGER_TEMPLATE), NVL(SOURCE,' '), ENROLLED_ON " +
-                                  "FROM " + _table + " WHERE PCNO = :pcno ORDER BY FINGER_NO";
-                cmd.Parameters.Add(new OracleParameter("pcno", OracleDbType.Varchar2, pcno, ParameterDirection.Input));
+                                  "FROM " + _table + " WHERE PCNO = :p_pcno ORDER BY FINGER_NO";
+                cmd.Parameters.Add(new OracleParameter("p_pcno", OracleDbType.Varchar2, pcno, ParameterDirection.Input));
                 using (var r = cmd.ExecuteReader())
                 {
                     while (r.Read())
@@ -139,9 +139,9 @@ namespace FingerprintVerifyPOC
             using (var cmd = conn.CreateCommand())
             {
                 cmd.BindByName = true;
-                cmd.CommandText = "DELETE FROM " + _table + " WHERE PCNO = :pcno AND FINGER_NO = :fno";
-                cmd.Parameters.Add(new OracleParameter("pcno", OracleDbType.Varchar2, pcno, ParameterDirection.Input));
-                cmd.Parameters.Add(new OracleParameter("fno", OracleDbType.Int32, fingerNo, ParameterDirection.Input));
+                cmd.CommandText = "DELETE FROM " + _table + " WHERE PCNO = :p_pcno AND FINGER_NO = :p_fno";
+                cmd.Parameters.Add(new OracleParameter("p_pcno", OracleDbType.Varchar2, pcno, ParameterDirection.Input));
+                cmd.Parameters.Add(new OracleParameter("p_fno", OracleDbType.Int32, fingerNo, ParameterDirection.Input));
                 return cmd.ExecuteNonQuery();
             }
         }

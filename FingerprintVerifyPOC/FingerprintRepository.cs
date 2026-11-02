@@ -69,7 +69,7 @@ namespace FingerprintVerifyPOC
             string sql = "SELECT " + _tmplCol +
                          (string.IsNullOrEmpty(_fingerCol) ? "" : ", " + _fingerCol) +
                          " FROM " + _table +
-                         " WHERE " + _pcnoCol + " = :pcno";
+                         " WHERE " + _pcnoCol + " = :p_pcno";
 
             using (var conn = new OracleConnection(_s.ConnectionString))
             using (var cmd = conn.CreateCommand())
@@ -78,7 +78,7 @@ namespace FingerprintVerifyPOC
                 cmd.CommandText = sql;
                 cmd.BindByName = true;
                 cmd.InitialLOBFetchSize = -1;   // fetch full BLOB/CLOB with the row (templates are small)
-                cmd.Parameters.Add(new OracleParameter("pcno", OracleDbType.Varchar2, pcno, ParameterDirection.Input));
+                cmd.Parameters.Add(new OracleParameter("p_pcno", OracleDbType.Varchar2, pcno, ParameterDirection.Input));
 
                 using (OracleDataReader r = cmd.ExecuteReader())
                 {
@@ -106,7 +106,7 @@ namespace FingerprintVerifyPOC
             string sql = "SELECT " + _pcnoCol + ", " + _tmplCol +
                          (string.IsNullOrEmpty(_fingerCol) ? "" : ", " + _fingerCol) +
                          " FROM " + _table +
-                         (onlyPcno != null ? " WHERE " + _pcnoCol + " = :pcno" : "") +
+                         (onlyPcno != null ? " WHERE " + _pcnoCol + " = :p_pcno" : "") +
                          " ORDER BY " + _pcnoCol;
             using (var conn = new OracleConnection(_s.ConnectionString))
             using (var cmd = conn.CreateCommand())
@@ -116,7 +116,7 @@ namespace FingerprintVerifyPOC
                 cmd.BindByName = true;
                 cmd.InitialLOBFetchSize = -1;
                 if (onlyPcno != null)
-                    cmd.Parameters.Add(new OracleParameter("pcno", OracleDbType.Varchar2, onlyPcno, ParameterDirection.Input));
+                    cmd.Parameters.Add(new OracleParameter("p_pcno", OracleDbType.Varchar2, onlyPcno, ParameterDirection.Input));
                 using (OracleDataReader r = cmd.ExecuteReader())
                 {
                     while (r.Read())
