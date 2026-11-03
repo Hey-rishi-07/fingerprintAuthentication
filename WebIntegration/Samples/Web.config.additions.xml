@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  ADD these parts to your web application's EXISTING Web.config (do not replace the file).
+  Encrypt the connection string afterwards (see README):
+     aspnet_regiis -pef "connectionStrings" "D:\inetpub\YourApp"
+-->
+<configuration>
+
+  <connectionStrings>
+    <!-- skip if your app already has an Oracle connection string; then set FpMfa.ConnectionName to its name -->
+    <add name="OracleDB" connectionString="User Id=APP_USER;Password=***;Data Source=//DB_HOST:1521/SERVICE_NAME;" />
+  </connectionStrings>
+
+  <appSettings>
+    <add key="FpMfa.Enabled"               value="true" />          <!-- master switch for this application -->
+    <add key="FpMfa.AppName"               value="MyWebApp" />      <!-- shown in the audit log -->
+    <add key="FpMfa.ConnectionName"        value="OracleDB" />
+
+    <!-- where the enrolled fingerprints are read from -->
+    <add key="FpMfa.SourceTable"           value="FP_AUTH_V" />
+    <add key="FpMfa.PcnoColumn"            value="PCNO" />
+    <add key="FpMfa.TemplateColumn"        value="FINGER_TEMPLATE" />
+    <add key="FpMfa.TemplateFormat"        value="AUTO" />          <!-- AUTO | ISO | ANSI -->
+    <add key="FpMfa.TemplateEncoding"      value="AUTO" />          <!-- AUTO | RAW | BASE64 | HEX -->
+    <add key="FpMfa.MatchThreshold"        value="1400" />          <!-- same value that worked in the POC -->
+
+    <!-- who is asked -->
+    <add key="FpMfa.RequireForAllUsers"    value="false" />         <!-- false = only users enabled on the admin page -->
+    <add key="FpMfa.AllowIfNotEnrolled"    value="false" />         <!-- true = enabled users without fingerprints skip the step -->
+    <add key="FpMfa.AdminUsers"            value="100001,100002" /> <!-- PC Nos allowed to open FingerprintAdmin.aspx -->
+
+    <!-- login flow -->
+    <add key="FpMfa.SignInMode"            value="Forms" />         <!-- Forms | Session | None (see README) -->
+    <add key="FpMfa.SessionUserKey"        value="PCNO" />          <!-- used when SignInMode=Session -->
+    <add key="FpMfa.LoginUrl"              value="~/Login.aspx" />
+    <add key="FpMfa.DefaultUrl"            value="~/Default.aspx" />
+    <add key="FpMfa.VerifyUrl"             value="~/FingerprintVerify.aspx" />
+    <add key="FpMfa.MaxAttempts"           value="3" />
+    <add key="FpMfa.PendingMinutes"        value="5" />
+
+    <!-- user PC side -->
+    <add key="FpMfa.AgentUrl"              value="http://localhost:8036" />
+    <add key="FpMfa.AgentDownloadUrl"      value="~/Downloads/FpScannerAgentSetup.zip" />
+    <add key="FpMfa.CaptureTimeoutSeconds" value="10" />
+    <add key="FpMfa.MantraFolder"          value="~/bin/mantra" />
+  </appSettings>
+
+  <!-- The fingerprint page and its handler must be reachable BEFORE the user is signed in -->
+  <location path="FingerprintVerify.aspx">
+    <system.web><authorization><allow users="*" /></authorization></system.web>
+  </location>
+  <location path="FingerprintMfa.ashx">
+    <system.web><authorization><allow users="*" /></authorization></system.web>
+  </location>
+  <location path="Downloads">
+    <system.web><authorization><allow users="*" /></authorization></system.web>
+  </location>
+
+  <runtime>
+    <!-- lets the server load the Mantra SDK even if the files came from a downloaded zip -->
+    <loadFromRemoteSources enabled="true" />
+  </runtime>
+
+</configuration>

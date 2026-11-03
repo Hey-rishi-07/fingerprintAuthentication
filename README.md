@@ -1,5 +1,11 @@
-# Fingerprint Authentication
+# Fingerprint Authentication (Mantra MFS100 + Oracle)
 
-Everything is in **[`FingerprintVerifyPOC/`](FingerprintVerifyPOC/README.md)**: open `FingerprintVerifyPOC/FingerprintVerifyPOC.sln` in Visual Studio.
+Open **`FingerprintAuthentication.sln`** in Visual Studio. Every project also has a `build.bat` that works without Visual Studio.
 
-The employee enters their PC No, the Mantra MFS100 light blinks and waits 10 seconds for a finger, and the finger is matched against all fingerprints already stored for that PC No in Oracle.
+| Folder | What it is |
+|---|---|
+| [`WebIntegration/`](WebIntegration/README.md) | **Production:** fingerprint step after LDAP login for ASP.NET WebForms apps (server-side verification, admin page, audit). |
+| [`ScannerAgent/`](ScannerAgent/README.md) | **Production:** background agent plus a one-time `Setup.bat` for user PCs. Capture only, no secrets. |
+| [`FingerprintVerifyPOC/`](FingerprintVerifyPOC/README.md) | Standalone POC and test tool: PC No, verify, enrol into a test table, diagnostics. |
+| `Lib/` | Mantra SDK (x86 and x64 native) and Oracle managed driver, shared by all projects. |
+| `Driver/` | Mantra MFS100 driver installer. |

@@ -2,10 +2,10 @@
 
 **Folder layout**
 ```
-FingerprintVerifyPOC.sln      <- open this in Visual Studio
+..\FingerprintAuthentication.sln  <- open this in Visual Studio (all projects)
 *.cs, App.config              program source + settings
-Lib\                          Mantra SDK + Oracle driver DLLs (copied next to the exe on build)
-Driver\MFS100_Driver_Setup.exe scanner driver for each PC
+..\Lib\                        Mantra SDK + Oracle driver DLLs (shared, copied next to the exe on build)
+..\Driver\MFS100_Driver_Setup.exe scanner driver for each PC
 Sql\Create_POC_View.sql       view over the main fingerprint table
 Sql\Create_POC_Enroll_Table.sql  the POC's own enrolment table + porting existing data
 Deploy\*.bat                  run / install / uninstall scripts (copied into dist\)
@@ -68,7 +68,7 @@ The main fingerprint table is never written to. Enrolment requests are only acce
 |---|---|---|
 | 1 | **Windows 10/11** (Windows 7 SP1 also works) | |
 | 2 | **.NET Framework 4.5 or newer** | Already present on Windows 10/11. |
-| 3 | **Mantra MFS100 driver** | `Driver\MFS100_Driver_Setup.exe` in this folder. Needs admin, once per PC. Plug in the scanner afterwards. |
+| 3 | **Mantra MFS100 driver** | `Driver\MFS100_Driver_Setup.exe` at the top of the repo. Needs admin, once per PC. Plug in the scanner afterwards. |
 | 4 | **Stop the Mantra RD Service / AVDM** if it is installed | It locks the scanner (Init error `-1`). See `Docs/SCANNER_TROUBLESHOOTING.md`. |
 | 5 | **Network access to Oracle** (port 1521) | **No Oracle Client install needed**: `Oracle.ManagedDataAccess.dll` is shipped with the program. |
 | 6 | The `dist` folder of this program | Contents are listed below. |
@@ -91,7 +91,7 @@ MFS100Dll.dll  iengine_ansi_iso.dll (32-bit native SDK)
 run_web.bat  run_console.bat  install.bat  uninstall.bat
 ```
 
-Or open `FingerprintVerifyPOC.sln` in Visual Studio and press Ctrl+F5. It is built as x86 because the MFS100 native DLLs are 32-bit.
+Or open `FingerprintAuthentication.sln` (repo root) in Visual Studio, set FingerprintVerifyPOC as startup project and press Ctrl+F5. It is built as x86 because the MFS100 native DLLs are 32-bit.
 
 ## 4. Configure: `FingerprintVerifyPOC.exe.config`
 

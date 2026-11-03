@@ -1,0 +1,61 @@
+// =====================================================================================
+//  HOW TO CHANGE YOUR EXISTING LOGIN PAGE (Login.aspx.cs) - only a few lines are added.
+// =====================================================================================
+using System;
+using System.Web.Security;
+
+public partial class Login : System.Web.UI.Page
+{
+    protected void btnLogin_Click(object sender, EventArgs e)
+    {
+        string user = txtUser.Text.Trim();
+        string password = txtPassword.Text;
+
+        // 1. your EXISTING LDAP check (unchanged)
+        string pcno;
+        if (!LdapHelper.Authenticate(user, password, out pcno))
+        {
+            lblError.Text = "Invalid user name or password.";
+            return;
+        }
+
+        // 2. NEW: fingerprint step. Must come BEFORE you mark the user as logged in.
+        //    Returns true  -> the user was sent to FingerprintVerify.aspx; stop here.
+        //    Returns false -> fingerprint not required for this user; continue as before.
+        if (FingerprintMfa.MfaLogin.BeginLogin(Context, pcno, Request.QueryString["ReturnUrl"]))
+            return;
+
+        // 3. your EXISTING "login completed" code (unchanged)
+        CompleteLogin(Context, pcno);
+        FormsAuthentication.RedirectFromLoginPage(pcno, false);
+    }
+
+    // Put the things you do after a successful login (session values, roles, last-login update, ...)
+    // in ONE method, so it runs for both paths: without fingerprint (above) and after the
+    // fingerprint (Global.asax, below).
+    public static void CompleteLogin(System.Web.HttpContext ctx, string pcno)
+    {
+        ctx.Session["PCNO"] = pcno;
+        // ctx.Session["UserName"] = ...;
+        // ctx.Session["Role"] = ...;
+    }
+}
+
+// =====================================================================================
+//  Global.asax.cs - run the same "login completed" code after a successful fingerprint
+// =====================================================================================
+public class Global : System.Web.HttpApplication
+{
+    protected void Application_Start(object sender, EventArgs e)
+    {
+        // FingerprintMfa already did FormsAuthentication.SetAuthCookie(pcno) (SignInMode=Forms)
+        FingerprintMfa.MfaLogin.SignedIn += (ctx, pcno) => Login.CompleteLogin(ctx, pcno);
+    }
+}
+
+// -------------------------------------------------------------------------------------
+//  If your app does NOT use Forms authentication but checks Session["PCNO"] on every page:
+//    Web.config:  FpMfa.SignInMode = Session   and   FpMfa.SessionUserKey = PCNO
+//  and make sure Session["PCNO"] is NOT set before BeginLogin(...) (otherwise the user is
+//  already "logged in" before giving the fingerprint).
+// -------------------------------------------------------------------------------------

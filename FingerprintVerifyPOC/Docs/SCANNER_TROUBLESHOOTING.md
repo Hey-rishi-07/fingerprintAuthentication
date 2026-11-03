@@ -1,7 +1,7 @@
 # Mantra MFS100 scanner: setup and troubleshooting
 
 ## 1. Install the driver (admin, once per PC)
-1. Run `Driver\MFS100_Driver_Setup.exe` **as Administrator** and finish the installer.
+1. Run `Driver\MFS100_Driver_Setup.exe` (repo root) **as Administrator** and finish the installer.
 2. Plug the MFS100 into a USB port.
 3. Open **Device Manager** (`Win + X`). Under *Universal Serial Bus controllers* or *Biometric Devices* you should see **Mantra MFS100 Fingerprint Sensor**.
    * If it has a yellow ⚠️ icon, right-click it, choose *Update driver*, and point it to `C:\Program Files\Mantra\MFS 100\Drivers`.
