@@ -3,6 +3,7 @@ using System.IO;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
+using System.Runtime.InteropServices;
 using System.Threading;
 
 namespace FingerprintVerifyPOC
@@ -54,6 +55,7 @@ namespace FingerprintVerifyPOC
                             LastError = "MANTRA.MFS100.dll not found next to the program (" + sdkPath + ").";
                             return false;
                         }
+                        UnblockFolder(Path.GetDirectoryName(sdkPath));
                         _sdk = Assembly.LoadFrom(sdkPath);
                         _deviceType = _sdk.GetType("MANTRA.MFS100");
                         _fingerDataType = _sdk.GetType("MANTRA.FingerData");
@@ -247,6 +249,26 @@ namespace FingerprintVerifyPOC
         }
 
         // ------------------------------------------------------------------ helpers
+
+        [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+        private static extern bool DeleteFile(string path);
+
+        /// <summary>
+        /// Files extracted from a downloaded zip carry a "downloaded from the internet" mark
+        /// (the Zone.Identifier stream). .NET then refuses Assembly.LoadFrom with
+        /// "An attempt was made to load an assembly from a network location...".
+        /// Removing the mark is the same as ticking "Unblock" in the file's Properties.
+        /// </summary>
+        private static void UnblockFolder(string dir)
+        {
+            try
+            {
+                foreach (string f in Directory.GetFiles(dir, "*.dll"))
+                    DeleteFile(f + ":Zone.Identifier");
+                DeleteFile(Path.Combine(dir, "FingerprintVerifyPOC.exe") + ":Zone.Identifier");
+            }
+            catch { }
+        }
 
         private bool IsConnectedInternal()
         {
